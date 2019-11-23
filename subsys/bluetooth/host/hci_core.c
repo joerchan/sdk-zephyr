@@ -5170,11 +5170,47 @@ struct bt_ad {
 	size_t len;
 };
 
-static int set_ad(u16_t hci_op, const struct bt_ad *ad, size_t ad_len)
+static int set_data_add(u8_t *set_data, u8_t set_data_len_max,
+			const struct bt_ad *ad, size_t ad_len, u8_t *data_len)
+{
+	u8_t set_data_len = 0;
+
+	for (size_t i = 0; i < ad_len; i++) {
+		const struct bt_data *data = ad[i].data;
+
+		for (size_t j = 0; j < ad[i].len; j++) {
+			size_t len = data[j].data_len;
+			u8_t type = data[j].type;
+
+			/* Check if ad fit in the remaining buffer */
+			if ((set_data_len + len + 2) > set_data_len_max) {
+				len = set_data_len_max - (set_data_len + 2);
+
+				if (type != BT_DATA_NAME_COMPLETE || !len) {
+					BT_ERR("Too big advertising data");
+					return -EINVAL;
+				}
+
+				type = BT_DATA_NAME_SHORTENED;
+			}
+
+			set_data[set_data_len++] = len + 1;
+			set_data[set_data_len++] = type;
+
+			memcpy(&set_data[set_data_len], data[j].data, len);
+			set_data_len += len;
+		}
+	}
+
+	*data_len = set_data_len;
+	return 0;
+}
+
+static int hci_set_ad(u16_t hci_op, const struct bt_ad *ad, size_t ad_len)
 {
 	struct bt_hci_cp_le_set_adv_data *set_data;
 	struct net_buf *buf;
-	int c, i;
+	int err;
 
 	buf = bt_hci_cmd_create(hci_op, sizeof(*set_data));
 	if (!buf) {
@@ -5182,37 +5218,25 @@ static int set_ad(u16_t hci_op, const struct bt_ad *ad, size_t ad_len)
 	}
 
 	set_data = net_buf_add(buf, sizeof(*set_data));
-
 	(void)memset(set_data, 0, sizeof(*set_data));
 
-	for (c = 0; c < ad_len; c++) {
-		const struct bt_data *data = ad[c].data;
-
-		for (i = 0; i < ad[c].len; i++) {
-			int len = data[i].data_len;
-			u8_t type = data[i].type;
-
-			/* Check if ad fit in the remaining buffer */
-			if (set_data->len + len + 2 > 31) {
-				len = 31 - (set_data->len + 2);
-				if (type != BT_DATA_NAME_COMPLETE || !len) {
-					net_buf_unref(buf);
-					BT_ERR("Too big advertising data");
-					return -EINVAL;
-				}
-				type = BT_DATA_NAME_SHORTENED;
-			}
-
-			set_data->data[set_data->len++] = len + 1;
-			set_data->data[set_data->len++] = type;
-
-			memcpy(&set_data->data[set_data->len], data[i].data,
-			       len);
-			set_data->len += len;
-		}
+	err = set_data_add(set_data->data, 31, ad, ad_len, &set_data->len);
+	if (err) {
+		net_buf_unref(buf);
+		return err;
 	}
 
 	return bt_hci_cmd_send_sync(hci_op, buf, NULL);
+}
+
+static int set_ad(const struct bt_ad *ad, size_t ad_len)
+{
+	return hci_set_ad(BT_HCI_OP_LE_SET_ADV_DATA, ad, ad_len);
+}
+
+static int set_sd(const struct bt_ad *sd, size_t sd_len)
+{
+	return hci_set_ad(BT_HCI_OP_LE_SET_SCAN_RSP_DATA, sd, sd_len);
 }
 
 int bt_set_name(const char *name)
@@ -5237,7 +5261,7 @@ int bt_set_name(const char *name)
 						strlen(name)) };
 		struct bt_ad sd = { data, ARRAY_SIZE(data) };
 
-		set_ad(BT_HCI_OP_LE_SET_SCAN_RSP_DATA, &sd, 1);
+		set_sd(&sd, 1);
 
 		/* Make sure the new name is set */
 		if (atomic_test_bit(bt_dev.flags, BT_DEV_ADVERTISING)) {
@@ -5597,7 +5621,7 @@ static int le_adv_update(const struct bt_data *ad, size_t ad_len,
 	d[0].data = ad;
 	d[0].len = ad_len;
 
-	err = set_ad(BT_HCI_OP_LE_SET_ADV_DATA, d, 1);
+	err = set_ad(d, 1);
 	if (err) {
 		return err;
 	}
@@ -5631,12 +5655,12 @@ static int le_adv_update(const struct bt_data *ad, size_t ad_len,
 	 * If any data was not provided but we enable connectable
 	 * undirected advertising sd needs to be cleared from values set
 	 * by previous calls.
-	 * Clearing sd is done by calling set_ad() with NULL data and
+	 * Clearing sd is done by calling set_sd() with NULL data and
 	 * zero len.
 	 * So following condition check is unusual but correct.
 	 */
 	if (d[0].data || d[1].data || connectable) {
-		err = set_ad(BT_HCI_OP_LE_SET_SCAN_RSP_DATA, d, 2);
+		err = set_sd(d, 2);
 		if (err) {
 			return err;
 		}
