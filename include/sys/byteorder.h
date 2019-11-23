@@ -185,6 +185,12 @@ static inline void sys_put_le16(u16_t val, u8_t dst[2])
 	dst[1] = val >> 8;
 }
 
+static inline void sys_put_le24(u32_t val, u8_t dst[3])
+{
+	sys_put_le16(val, dst);
+	dst[2] = val >> 16;
+}
+
 /**
  *  @brief Put a 32-bit integer as little-endian to arbitrary location.
  *
