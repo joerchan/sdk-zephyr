@@ -71,8 +71,8 @@ static bool data_cb(struct bt_data *data, void *user_data)
 	}
 }
 
-static void device_found(const bt_addr_le_t *addr, s8_t rssi, u8_t evtype,
-			 struct net_buf_simple *buf)
+static void scan_recv(const struct bt_le_adv_info *info,
+		      struct net_buf_simple *buf)
 {
 	char le_addr[BT_ADDR_LE_STR_LEN];
 	char name[NAME_LEN];
@@ -81,9 +81,21 @@ static void device_found(const bt_addr_le_t *addr, s8_t rssi, u8_t evtype,
 
 	bt_data_parse(buf, data_cb, name);
 
-	bt_addr_le_to_str(addr, le_addr, sizeof(le_addr));
-	shell_print(ctx_shell, "[DEVICE]: %s, AD evt type %u, RSSI %i %s",
-	      le_addr, evtype, rssi, name);
+	bt_addr_le_to_str(info->addr, le_addr, sizeof(le_addr));
+	shell_print(ctx_shell, "[DEVICE]: %s, AD evt type %u, RSSI %i %s"
+		    "C:%u S:%u D:%d SR:%u L:%u",
+		    le_addr, info->adv_type, info->rssi, name,
+		    (info->adv_props & BT_GAP_ADV_PROP_CONNECTABLE) != 0,
+		    (info->adv_props & BT_GAP_ADV_PROP_SCANNABLE) != 0,
+		    (info->adv_props & BT_GAP_ADV_PROP_DIRECTED) != 0,
+		    (info->adv_props & BT_GAP_ADV_PROP_SCAN_REPONSE) != 0,
+		    (info->adv_props & BT_GAP_ADV_PROP_LEGACY) != 0);
+
+}
+
+static void scan_timeout(void)
+{
+	shell_print(ctx_shell, "Scan timeout");
 }
 #endif /* CONFIG_BT_OBSERVER */
 
@@ -149,7 +161,7 @@ static void connected(struct bt_conn *conn, u8_t err)
 	conn_addr_str(conn, addr, sizeof(addr));
 
 	if (err) {
-		shell_error(ctx_shell, "Failed to connect to %s (%u)", addr,
+		shell_error(ctx_shell, "Failed to connect to %s (0x%02x)", addr,
 			     err);
 		goto done;
 	}
@@ -244,6 +256,11 @@ static struct bt_conn_cb conn_callbacks = {
 };
 #endif /* CONFIG_BT_CONN */
 
+static struct bt_le_scan_cb scan_callbacks = {
+	.recv = scan_recv,
+	.timeout = scan_timeout,
+};
+
 static void bt_ready(int err)
 {
 	if (err) {
@@ -261,6 +278,7 @@ static void bt_ready(int err)
 	default_conn = NULL;
 
 	bt_conn_cb_register(&conn_callbacks);
+	bt_le_scan_cb_register(&scan_callbacks);
 #endif /* CONFIG_BT_CONN */
 }
 
@@ -457,7 +475,7 @@ static int cmd_id_select(const struct shell *shell, size_t argc, char *argv[])
 }
 
 #if defined(CONFIG_BT_OBSERVER)
-static int cmd_active_scan_on(const struct shell *shell, u8_t filter)
+static int cmd_active_scan_on(const struct shell *shell, u32_t options)
 {
 	int err;
 	struct bt_le_scan_param param = {
@@ -466,9 +484,9 @@ static int cmd_active_scan_on(const struct shell *shell, u8_t filter)
 			.interval   = BT_GAP_SCAN_FAST_INTERVAL,
 			.window     = BT_GAP_SCAN_FAST_WINDOW };
 
-	param.filter_dup = filter;
+	param.options |= options;
 
-	err = bt_le_scan_start(&param, device_found);
+	err = bt_le_scan_start(&param, NULL);
 	if (err) {
 		shell_error(shell, "Bluetooth set active scan failed "
 		      "(err %d)", err);
@@ -480,18 +498,18 @@ static int cmd_active_scan_on(const struct shell *shell, u8_t filter)
 	return 0;
 }
 
-static int cmd_passive_scan_on(const struct shell *shell, u8_t filter)
+static int cmd_passive_scan_on(const struct shell *shell, u32_t options)
 {
 	struct bt_le_scan_param param = {
 			.type       = BT_HCI_LE_SCAN_PASSIVE,
-			.filter_dup = BT_HCI_LE_SCAN_FILTER_DUP_DISABLE,
+			.options = BT_HCI_LE_SCAN_FILTER_DUP_DISABLE,
 			.interval   = 0x10,
 			.window     = 0x10 };
 	int err;
 
-	param.filter_dup = filter;
+	param.options |= options;
 
-	err = bt_le_scan_start(&param, device_found);
+	err = bt_le_scan_start(&param, NULL);
 	if (err) {
 		shell_error(shell, "Bluetooth set passive scan failed "
 			    "(err %d)", err);
@@ -521,18 +539,22 @@ static int cmd_scan_off(const struct shell *shell)
 static int cmd_scan(const struct shell *shell, size_t argc, char *argv[])
 {
 	const char *action;
-	u8_t filter = 0;
+	u32_t options = 0;
 
 	/* Parse duplicate filtering data */
 	for (size_t argn = 2; argn < argc; argn++) {
 		const char *arg = argv[argn];
 
 		if (!strcmp(arg, "dups")) {
-			filter |= BT_LE_SCAN_FILTER_DUPLICATE;
+			options |= BT_LE_SCAN_FILTER_DUPLICATE;
 		} else if (!strcmp(arg, "nodups")) {
-			filter &= ~BT_LE_SCAN_FILTER_DUPLICATE;
+			options &= ~BT_LE_SCAN_FILTER_DUPLICATE;
 		} else if (!strcmp(arg, "wl")) {
-			filter |= BT_LE_SCAN_FILTER_WHITELIST;
+			options |= BT_LE_SCAN_FILTER_WHITELIST;
+		} else if (!strcmp(arg, "coded")) {
+			options |= BT_LE_SCAN_SECONDARY_CODED;
+		} else if (!strcmp(arg, "no1m")) {
+			options |= BT_LE_SCAN_PRIMARY_DISABLED;
 		} else {
 			shell_help(shell);
 			return SHELL_CMD_HELP_PRINTED;
@@ -541,16 +563,34 @@ static int cmd_scan(const struct shell *shell, size_t argc, char *argv[])
 
 	action = argv[1];
 	if (!strcmp(action, "on")) {
-		return cmd_active_scan_on(shell, filter);
+		return cmd_active_scan_on(shell, options);
 	} else if (!strcmp(action, "off")) {
 		return cmd_scan_off(shell);
 	} else if (!strcmp(action, "passive")) {
-		return cmd_passive_scan_on(shell, filter);
+		return cmd_passive_scan_on(shell, options);
 	} else {
 		shell_help(shell);
 		return SHELL_CMD_HELP_PRINTED;
 	}
 
+	return 0;
+}
+
+static int cmd_scan_timeout(const struct shell *shell, size_t argc,
+			    char *argv[])
+{
+	s32_t timeout;
+	int err;
+
+	timeout = strtoul(argv[1], NULL, 10);
+
+	err = bt_le_set_scan_timeout(timeout);
+	if (err) {
+		shell_error(shell, "Failed to set scan time %d", err);
+		return -ENOEXEC;
+	}
+
+	shell_print(shell, "Scan time set");
 	return 0;
 }
 #endif /* CONFIG_BT_OBSERVER */
@@ -670,6 +710,33 @@ static int cmd_directed_adv(const struct shell *shell,
 	return 0;
 }
 #endif /* CONFIG_BT_PERIPHERAL */
+
+#if defined(CONFIG_BT_ADV_EXT)
+static int cmd_adv_create(const struct shell *shell, size_t argc, char *argv[])
+{
+	return -ENOEXEC;
+}
+
+static int cmd_adv_start(const struct shell *shell, size_t argc, char *argv[])
+{
+	return -ENOEXEC;
+}
+
+static int cmd_adv_stop(const struct shell *shell, size_t argc, char *argv[])
+{
+	return -ENOEXEC;
+}
+
+static int cmd_adv_delete(const struct shell *shell, size_t argc, char *argv[])
+{
+	return -ENOEXEC;
+}
+
+static int cmd_adv_select(const struct shell *shell, size_t argc, char *argv[])
+{
+	return -ENOEXEC;
+}
+#endif /* CONFIG_BT_ADV_EXT */
 #endif /* CONFIG_BT_BROADCASTER */
 
 #if defined(CONFIG_BT_CONN)
@@ -1602,8 +1669,12 @@ SHELL_STATIC_SUBCMD_SET_CREATE(bt_cmds,
 	SHELL_CMD_ARG(name, NULL, "[name]", cmd_name, 1, 1),
 #if defined(CONFIG_BT_OBSERVER)
 	SHELL_CMD_ARG(scan, NULL,
-		      "<value: on, passive, off> [filter: dups, nodups] [wl]",
-		      cmd_scan, 2, 2),
+		      "<value: on, passive, off> [filter: dups, nodups] [wl]"
+#if defined(CONFIG_BT_ADV_EXT)
+		      " [coded] [no1m]",
+#endif /* defined(CONFIG_BT_ADV_EXT) */
+		      cmd_scan, 2, 4),
+	SHELL_CMD_ARG(scan-timeout, NULL, "<timeout>", cmd_scan_timeout, 2, 0),
 #endif /* CONFIG_BT_OBSERVER */
 #if defined(CONFIG_BT_BROADCASTER)
 	SHELL_CMD_ARG(advertise, NULL,
@@ -1614,6 +1685,13 @@ SHELL_STATIC_SUBCMD_SET_CREATE(bt_cmds,
 	SHELL_CMD_ARG(directed-adv, NULL, HELP_ADDR_LE " [mode: low]",
 		      cmd_directed_adv, 3, 1),
 #endif /* CONFIG_BT_PERIPHERAL */
+#if defined(CONFIG_BT_ADV_EXT)
+	SHELL_CMD_ARG(adv-create, NULL, "", cmd_adv_create, 2, 0),
+	SHELL_CMD_ARG(adv-start, NULL, "", cmd_adv_start, 2, 0),
+	SHELL_CMD_ARG(adv-stop, NULL, "", cmd_adv_stop, 2, 0),
+	SHELL_CMD_ARG(adv-delete, NULL, "", cmd_adv_delete, 2, 0),
+	SHELL_CMD_ARG(adv-select, NULL, "", cmd_adv_select, 2, 0),
+#endif
 #endif /* CONFIG_BT_BROADCASTER */
 #if defined(CONFIG_BT_CONN)
 #if defined(CONFIG_BT_CENTRAL)

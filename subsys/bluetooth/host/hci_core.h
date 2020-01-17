@@ -34,9 +34,11 @@ enum {
 	BT_DEV_HAS_PUB_KEY,
 	BT_DEV_PUB_KEY_BUSY,
 
+// #if !defined(CONFIG_BT_ADV_EXT)
 	BT_DEV_ADVERTISING,
 	BT_DEV_ADVERTISING_NAME,
 	BT_DEV_ADVERTISING_CONNECTABLE,
+// #endif /* !defined(CONFIG_BT_ADV_EXT) */
 	BT_DEV_KEEP_ADVERTISING,
 	BT_DEV_SCANNING,
 	BT_DEV_EXPLICIT_SCAN,
@@ -63,6 +65,36 @@ enum {
 #define BT_DEV_PERSISTENT_FLAGS (BIT(BT_DEV_ENABLE) | \
 				 BIT(BT_DEV_PRESET_ID) | \
 				 BIT(BT_DEV_USER_ID_ADDR))
+
+enum {
+	BT_ADV_ENABLED,
+
+	BT_ADV_ADVERTISING,
+	BT_ADV_ADVERTISING_NAME,
+	BT_ADV_ADVERTISING_CONNECTABLE,
+
+	BT_ADV_NUM_FLAGS,
+};
+
+struct bt_adv {
+	/* Reserved connection object */
+	// struct bt_conn          *conn;
+	ATOMIC_DEFINE(flags, BT_ADV_NUM_FLAGS);
+
+	/* Advertising handle */
+	u16_t			handle;
+
+	/* ID Address used for advertising */
+	u8_t                    id;
+
+	/* TX Power in use by the controller */
+	s8_t                    tx_power;
+
+	/* Current local Random Address */
+	bt_addr_le_t		random_addr;
+
+	atomic_t		ref;
+};
 
 struct bt_dev_le {
 	/* LE features */
@@ -116,11 +148,13 @@ struct bt_dev {
 	bt_addr_le_t		id_addr[CONFIG_BT_ID_MAX];
 	u8_t                    id_count;
 
+	// TODO: use advertising context
 	/* ID Address used for advertising */
 	u8_t                    adv_id;
 
+	// TODO: use advertising context
 	/* Current local Random Address */
-	bt_addr_le_t		random_addr;
+	bt_addr_le_t            random_addr;
 
 	/* Controller version & manufacturer information */
 	u8_t			hci_version;
@@ -209,7 +243,10 @@ void bt_id_del(struct bt_keys *keys);
 int bt_setup_id_addr(void);
 void bt_finalize_init(void);
 
-int bt_le_adv_start_internal(const struct bt_le_adv_param *param,
-			     const struct bt_data *ad, size_t ad_len,
-			     const struct bt_data *sd, size_t sd_len,
-			     const bt_addr_le_t *peer);
+int bt_le_adv_start_legacy(const struct bt_le_adv_param *param,
+			   const struct bt_data *ad, size_t ad_len,
+			   const struct bt_data *sd, size_t sd_len,
+			   const bt_addr_le_t *peer);
+
+int bt_le_adv_direct(const struct bt_le_adv_param *param,
+		     const bt_addr_le_t *peer);

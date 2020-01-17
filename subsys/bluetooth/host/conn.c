@@ -2093,6 +2093,11 @@ int bt_conn_create_auto_stop(void)
 }
 #endif /* defined(CONFIG_BT_WHITELIST) */
 
+int bt_conn_set_scan_params(const struct bt_conn_scan_param *param)
+{
+	return 0;
+}
+
 struct bt_conn *bt_conn_create_le(const bt_addr_le_t *peer,
 				  const struct bt_le_conn_param *param)
 {
@@ -2153,7 +2158,14 @@ start_scan:
 
 	bt_conn_set_state(conn, BT_CONN_CONNECT_SCAN);
 
-	bt_le_scan_update(true);
+	if (bt_le_scan_update(true))
+	{
+		BT_WARN("Failed to update scanner");
+		// bt_conn_set_state(conn, BT_CONN_DISCONNECTED);
+		// bt_conn_unref(conn);
+
+		// return NULL;
+	}
 
 	return conn;
 }
@@ -2228,7 +2240,7 @@ struct bt_conn *bt_conn_create_slave_le(const bt_addr_le_t *peer,
 			/* Handle the case when advertising is stopped with
 			 * bt_le_adv_stop function
 			 */
-			err = bt_le_adv_start_internal(&param_int, NULL, 0,
+			err = bt_le_adv_start_legacy(&param_int, NULL, 0,
 						       NULL, 0, peer);
 			if (err && (err != -EALREADY)) {
 				BT_WARN("Directed advertising could not be"
@@ -2257,7 +2269,7 @@ struct bt_conn *bt_conn_create_slave_le(const bt_addr_le_t *peer,
 start_adv:
 	bt_conn_set_state(conn, BT_CONN_CONNECT_DIR_ADV);
 
-	err = bt_le_adv_start_internal(&param_int, NULL, 0, NULL, 0, peer);
+	err = bt_le_adv_start_legacy(&param_int, NULL, 0, NULL, 0, peer);
 	if (err) {
 		BT_WARN("Directed advertising could not be started: %d", err);
 
