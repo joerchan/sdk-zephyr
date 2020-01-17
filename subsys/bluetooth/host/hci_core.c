@@ -5808,7 +5808,7 @@ int bt_le_adv_start_internal(const struct bt_le_adv_param *param,
 					BT_HCI_OWN_ADDR_RPA_MASK;
 			}
 		} else {
-			set_param.type = BT_LE_ADV_IND;
+			set_param.type = BT_HCI_ADV_IND;
 		}
 	} else {
 		if (param->options & BT_LE_ADV_OPT_USE_IDENTITY) {
