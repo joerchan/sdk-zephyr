@@ -1176,12 +1176,14 @@ static void update_pending_id(struct bt_keys *keys, void *data)
 {
 	if (keys->flags & BT_KEYS_ID_PENDING_ADD) {
 		keys->flags &= ~BT_KEYS_ID_PENDING_ADD;
+		BT_INFO("Pending add");
 		bt_id_add(keys);
 		return;
 	}
 
 	if (keys->flags & BT_KEYS_ID_PENDING_DEL) {
 		keys->flags &= ~BT_KEYS_ID_PENDING_DEL;
+		BT_INFO("Pending del");
 		bt_id_del(keys);
 		return;
 	}
@@ -1306,7 +1308,12 @@ static void enh_conn_complete(struct bt_hci_evt_le_enh_conn_complete *evt)
 
 #if defined(CONFIG_BT_SMP)
 	if (atomic_test_and_clear_bit(bt_dev.flags, BT_DEV_ID_PENDING)) {
-		bt_keys_foreach(BT_KEYS_IRK, update_pending_id, NULL);
+		if (IS_ENABLED(CONFIG_BT_CENTRAL) &&
+		    IS_ENABLED(CONFIG_BT_PRIVACY)) {
+			bt_keys_foreach(BT_KEYS_ALL, update_pending_id, NULL);
+		} else {
+			bt_keys_foreach(BT_KEYS_IRK, update_pending_id, NULL);
+		}
 	}
 #endif
 
@@ -2973,7 +2980,7 @@ static int le_set_privacy_mode(const bt_addr_le_t *addr, u8_t mode)
 		return 0;
 	}
 
-	BT_DBG("addr %s mode 0x%02x", bt_addr_le_str(addr), mode);
+	BT_INFO("addr %s mode 0x%02x", bt_addr_le_str(addr), mode);
 
 	bt_addr_le_copy(&cp.id_addr, addr);
 	cp.mode = mode;
@@ -2997,7 +3004,7 @@ static int addr_res_enable(u8_t enable)
 {
 	struct net_buf *buf;
 
-	BT_DBG("%s", enable ? "enabled" : "disabled");
+	BT_INFO("%s", enable ? "enabled" : "disabled");
 
 	buf = bt_hci_cmd_create(BT_HCI_OP_LE_SET_ADDR_RES_ENABLE, 1);
 	if (!buf) {
@@ -3015,7 +3022,7 @@ static int hci_id_add(u8_t id, const bt_addr_le_t *addr, u8_t peer_irk[16])
 	struct bt_hci_cp_le_add_dev_to_rl *cp;
 	struct net_buf *buf;
 
-	BT_DBG("addr %s", bt_addr_le_str(addr));
+	BT_INFO("addr %s", bt_addr_le_str(addr));
 
 	buf = bt_hci_cmd_create(BT_HCI_OP_LE_ADD_DEV_TO_RL, sizeof(*cp));
 	if (!buf) {
@@ -3024,13 +3031,15 @@ static int hci_id_add(u8_t id, const bt_addr_le_t *addr, u8_t peer_irk[16])
 
 	cp = net_buf_add(buf, sizeof(*cp));
 	bt_addr_le_copy(&cp->peer_id_addr, addr);
-	memcpy(cp->peer_irk, val, 16);
+	memcpy(cp->peer_irk, peer_irk, 16);
 
 #if defined(CONFIG_BT_PRIVACY)
 	memcpy(cp->local_irk, bt_dev.irk[id], 16);
 #else
 	(void)memset(cp->local_irk, 0, 16);
 #endif
+	BT_INFO("Local IRK %s", bt_hex(cp->local_irk, 16));
+	BT_INFO("Peer  IRK %s", bt_hex(cp->peer_irk, 16));
 
 	return bt_hci_cmd_send_sync(BT_HCI_OP_LE_ADD_DEV_TO_RL, buf, NULL);
 }
@@ -3044,7 +3053,7 @@ void bt_id_add(struct bt_keys *keys)
 	struct bt_conn *conn;
 	int err;
 
-	BT_DBG("addr %s", bt_addr_le_str(&keys->addr));
+	BT_INFO("addr %s", bt_addr_le_str(&keys->addr));
 
 	/* Nothing to be done if host-side resolving is used */
 	if (!bt_dev.le.rl_size || bt_dev.le.rl_entries > bt_dev.le.rl_size) {
@@ -3074,6 +3083,7 @@ void bt_id_add(struct bt_keys *keys)
 
 	/* If there are any existing entries address resolution will be on */
 	if (bt_dev.le.rl_entries) {
+		BT_INFO("Disable because we want to add");
 		err = addr_res_enable(BT_HCI_ADDR_RES_DISABLE);
 		if (err) {
 			BT_WARN("Failed to disable address resolution");
@@ -3137,7 +3147,9 @@ done:
 
 static void keys_add_id(struct bt_keys *keys, void *data)
 {
-	hci_id_add(keys->id, &keys->addr, keys->irk.val);
+	if (keys != (struct bt_keys *)data) {
+		hci_id_add(keys->id, &keys->addr, keys->irk.val);
+	}
 }
 
 void bt_id_del(struct bt_keys *keys)
@@ -3178,7 +3190,7 @@ void bt_id_del(struct bt_keys *keys)
 		set_le_scan_enable(BT_HCI_LE_SCAN_DISABLE);
 	}
 #endif /* CONFIG_BT_OBSERVER */
-
+	BT_INFO("Disable because we want to remove");
 	err = addr_res_enable(BT_HCI_ADDR_RES_DISABLE);
 	if (err) {
 		BT_ERR("Disabling address resolution failed (err %d)", err);
@@ -3188,8 +3200,12 @@ void bt_id_del(struct bt_keys *keys)
 	/* We checked size + 1 earlier, so here we know we can fit again */
 	if (bt_dev.le.rl_entries > bt_dev.le.rl_size) {
 		bt_dev.le.rl_entries--;
-		keys->keys &= ~BT_KEYS_IRK;
-		bt_keys_foreach(BT_KEYS_IRK, keys_add_id, NULL);
+		if (IS_ENABLED(CONFIG_BT_CENTRAL) &&
+		    IS_ENABLED(CONFIG_BT_PRIVACY)) {
+			bt_keys_foreach(BT_KEYS_ALL, keys_add_id, keys);
+		} else {
+			bt_keys_foreach(BT_KEYS_IRK, keys_add_id, keys);
+		}
 		goto done;
 	}
 
@@ -3659,6 +3675,10 @@ static int start_le_scan(u8_t scan_type, u16_t interval, u16_t window)
 			}
 		}
 	}
+
+	BT_INFO("Scan param: own-addr: 0x%02x random-addr %s",
+		set_param.addr_type,
+		bt_addr_le_str(&bt_dev.id_addr[0]));
 
 	buf = bt_hci_cmd_create(BT_HCI_OP_LE_SET_SCAN_PARAM, sizeof(set_param));
 	if (!buf) {
@@ -5998,6 +6018,7 @@ int bt_le_adv_start_internal(const struct bt_le_adv_param *param,
 				/* This will not use RPA for our own address
 				 * since we have set zeroed out the local IRK.
 				 */
+				BT_INFO("Setting RPA mask");
 				set_param.own_addr_type |=
 					BT_HCI_OWN_ADDR_RPA_MASK;
 			}
@@ -6026,6 +6047,10 @@ int bt_le_adv_start_internal(const struct bt_le_adv_param *param,
 			set_param.type = BT_LE_ADV_NONCONN_IND;
 		}
 	}
+
+	BT_INFO("Adv param: own-addr: 0x%02x dir-addr: %s",
+		set_param.own_addr_type,
+		bt_addr_le_str(&set_param.direct_addr));
 
 	buf = bt_hci_cmd_create(BT_HCI_OP_LE_SET_ADV_PARAM, sizeof(set_param));
 	if (!buf) {

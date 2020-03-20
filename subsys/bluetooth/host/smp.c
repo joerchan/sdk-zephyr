@@ -1736,7 +1736,7 @@ static void smp_reset(struct bt_smp *smp)
 
 static void smp_pairing_complete(struct bt_smp *smp, u8_t status)
 {
-	BT_DBG("status 0x%x", status);
+	BT_INFO("status 0x%x", status);
 
 	if (!status) {
 #if defined(CONFIG_BT_BREDR)
@@ -3564,7 +3564,7 @@ static u8_t smp_ident_addr_info(struct bt_smp *smp, struct net_buf *buf)
 	struct bt_smp_ident_addr_info *req = (void *)buf->data;
 	u8_t err;
 
-	BT_DBG("identity %s", bt_addr_le_str(&req->addr));
+	BT_INFO("identity %s", bt_addr_le_str(&req->addr));
 
 	if (!bt_addr_le_is_identity(&req->addr)) {
 		BT_ERR("Invalid identity %s", bt_addr_le_str(&req->addr));
@@ -4241,6 +4241,19 @@ static void bt_smp_encrypt_change(struct bt_l2cap_chan *chan,
 		atomic_set_bit(&smp->allowed_cmds, BT_SMP_CMD_IDENT_INFO);
 	} else if (smp->remote_dist & BT_SMP_DIST_SIGN) {
 		atomic_set_bit(&smp->allowed_cmds, BT_SMP_CMD_SIGNING_INFO);
+	}
+
+	BT_INFO("remote dist & ID_KEY %d",
+		smp->remote_dist & BT_SMP_DIST_ID_KEY);
+
+	if (IS_ENABLED(CONFIG_BT_CENTRAL) &&
+	    IS_ENABLED(CONFIG_BT_PRIVACY) &&
+	    !(smp->remote_dist & BT_SMP_DIST_ID_KEY)) {
+	    	/* To resolve directed advertising we need our local IRK
+	    	 * in the controllers resolving list, add it now since the
+	    	 * peer has no identity key.
+	    	 */
+		bt_id_add(conn->le.keys);
 	}
 
 	atomic_set_bit(smp->flags, SMP_FLAG_KEYS_DISTR);
@@ -5210,6 +5223,7 @@ void bt_smp_update_keys(struct bt_conn *conn)
 	 * only keys distributed in this pairing or LTK from LE SC will be used.
 	 */
 	if (conn->le.keys) {
+		BT_INFO("Keys clear update keys");
 		bt_keys_clear(conn->le.keys);
 	}
 
