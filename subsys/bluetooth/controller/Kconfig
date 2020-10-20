@@ -60,6 +60,9 @@ config BT_CTLR_SMI_SUPPORT
 config BT_CTLR_CONN_RSSI_SUPPORT
 	bool
 
+config BT_CTLR_ECDH_SUPPORT
+	bool
+
 config BT_CTLR
 	bool "Bluetooth Controller"
 	help
