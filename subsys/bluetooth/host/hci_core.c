@@ -9087,10 +9087,13 @@ int bt_dh_key_gen(const uint8_t remote_pk[64], bt_dh_key_cb_t cb)
 	int err;
 
 	if (dh_key_cb || atomic_test_bit(bt_dev.flags, BT_DEV_PUB_KEY_BUSY)) {
+		BT_WARN("Busy");
+		BT_WARN("dh_key_cb %p - %d", dk_key_cb, atomic_test_bit(bt_dev.flags, BT_DEV_PUB_KEY_BUSY));
 		return -EBUSY;
 	}
 
 	if (!atomic_test_bit(bt_dev.flags, BT_DEV_HAS_PUB_KEY)) {
+		BT_WARN("ADDR_NOT_AVAIL");
 		return -EADDRNOTAVAIL;
 	}
 
@@ -9099,6 +9102,7 @@ int bt_dh_key_gen(const uint8_t remote_pk[64], bt_dh_key_cb_t cb)
 	buf = bt_hci_cmd_create(BT_HCI_OP_LE_GENERATE_DHKEY, sizeof(*cp));
 	if (!buf) {
 		dh_key_cb = NULL;
+		BT_WARN("ENOBUFS");
 		return -ENOBUFS;
 	}
 
@@ -9107,6 +9111,7 @@ int bt_dh_key_gen(const uint8_t remote_pk[64], bt_dh_key_cb_t cb)
 
 	err = bt_hci_cmd_send_sync(BT_HCI_OP_LE_GENERATE_DHKEY, buf, NULL);
 	if (err) {
+		BT_WARN("err");
 		dh_key_cb = NULL;
 		return err;
 	}

@@ -2051,6 +2051,35 @@ static int cmd_clear(const struct shell *shell, size_t argc, char *argv[])
 #endif /* CONFIG_BT_CONN */
 
 #if defined(CONFIG_BT_SMP) || defined(CONFIG_BT_BREDR)
+
+static void disconnect(struct bt_conn *conn, void *user_data)
+{
+	int err;
+	int sec = *(int *)user_data;
+	// struct bt_conn_info info;
+	// bt_conn_get_info(conn, &info)
+
+	err = bt_conn_set_security(conn, sec);
+	if (err) {
+		shell_error(ctx_shell, "Setting security failed (err %d)", err);
+	}
+
+	// char addr[BT_ADDR_LE_STR_LEN];
+	// bt_addr_le_to_str(&info->addr, addr, sizeof(addr));
+	// shell_print(ctx_shell, "Requesting security: %s", addr);
+}
+
+static int cmd_security_all(const struct shell *shell, size_t argc, char *argv[])
+{
+	int sec;
+
+	sec = *argv[1] - '0';
+
+	bt_conn_foreach(BT_CONN_TYPE_LE, disconnect, &sec);
+
+	return 0;
+}
+
 static int cmd_security(const struct shell *shell, size_t argc, char *argv[])
 {
 	int err, sec;
@@ -2823,6 +2852,9 @@ SHELL_STATIC_SUBCMD_SET_CREATE(bt_cmds,
 	SHELL_CMD_ARG(security, NULL, "<security level BR/EDR: 0 - 3, "
 				      "LE: 1 - 4> [force-pair]",
 		      cmd_security, 2, 1),
+	SHELL_CMD_ARG(security-all, NULL, "<security level BR/EDR: 0 - 3, "
+				      "LE: 1 - 4> [force-pair]",
+		      cmd_security_all, 2, 1),
 	SHELL_CMD_ARG(bondable, NULL, "<bondable: on, off>", cmd_bondable,
 		      2, 0),
 	SHELL_CMD_ARG(bonds, NULL, HELP_NONE, cmd_bonds, 1, 0),
