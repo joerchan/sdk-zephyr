@@ -7669,11 +7669,7 @@ static int le_adv_set_random_addr(struct bt_le_ext_adv *adv, uint32_t options,
 				return err;
 			}
 
-			if (BT_FEAT_LE_PRIVACY(bt_dev.le.features)) {
-				*own_addr_type = BT_HCI_OWN_ADDR_RPA_OR_RANDOM;
-			} else {
-				*own_addr_type = BT_ADDR_LE_RANDOM;
-			}
+			*own_addr_type = BT_ADDR_LE_RANDOM;
 		} else {
 			/*
 			 * If Static Random address is used as Identity
@@ -7692,6 +7688,22 @@ static int le_adv_set_random_addr(struct bt_le_ext_adv *adv, uint32_t options,
 		}
 
 		if (dir_adv) {
+			if (!BT_FEAT_LE_PRIVACY(bt_dev.le.features) &&
+			    (options & BT_LE_ADV_OPT_DIR_ADDR_RPA)) {
+				return -ENOTSUP;
+			}
+
+			if ((options & BT_LE_ADV_OPT_DIR_ADDR_RPA) &&
+			    IS_ENABLED(CONFIG_BT_PRIVACY) &&
+			    !(options & BT_LE_ADV_OPT_USE_IDENTITY) {
+			    	*own_addr_type = BT_HCI_OWN_ADDR_RPA_OR_RANDOM;
+			 }
+
+			if (BT_LE_ADV_OPT_DIR_ADDR_RPA
+				BT_FEAT_LE_PRIVACY(bt_dev.le.features)) {
+				*own_addr_type = BT_HCI_OWN_ADDR_RPA_OR_RANDOM;
+
+
 			if (IS_ENABLED(CONFIG_BT_SMP) &&
 			    !IS_ENABLED(CONFIG_BT_PRIVACY) &&
 			    BT_FEAT_LE_PRIVACY(bt_dev.le.features) &&
