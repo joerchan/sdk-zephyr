@@ -1636,6 +1636,8 @@ int bt_hci_disconnect(uint16_t handle, uint8_t reason)
 	disconn->handle = sys_cpu_to_le16(handle);
 	disconn->reason = reason;
 
+	BT_WARN("handle %d reason %d", handle, reason);
+
 	return bt_hci_cmd_send_sync(BT_HCI_OP_DISCONNECT, buf, NULL);
 }
 
@@ -1645,7 +1647,7 @@ static void hci_disconn_complete_prio(struct net_buf *buf)
 	uint16_t handle = sys_le16_to_cpu(evt->handle);
 	struct bt_conn *conn;
 
-	BT_DBG("status 0x%02x handle %u reason 0x%02x", evt->status, handle,
+	BT_WARN("status 0x%02x handle %u reason 0x%02x", evt->status, handle,
 	       evt->reason);
 
 	if (evt->status) {
@@ -1668,7 +1670,7 @@ static void hci_disconn_complete(struct net_buf *buf)
 	uint16_t handle = sys_le16_to_cpu(evt->handle);
 	struct bt_conn *conn;
 
-	BT_DBG("status 0x%02x handle %u reason 0x%02x", evt->status, handle,
+	BT_WARN("status 0x%02x handle %u reason 0x%02x", evt->status, handle,
 	       evt->reason);
 
 	if (evt->status) {
@@ -2075,10 +2077,10 @@ static void enh_conn_complete(struct bt_hci_evt_le_enh_conn_complete *evt)
 	bt_addr_le_t peer_addr, id_addr;
 	struct bt_conn *conn;
 
-	BT_DBG("status 0x%02x handle %u role %u peer %s peer RPA %s",
+	BT_WARN("status 0x%02x handle %u role %u peer %s peer RPA %s",
 	       evt->status, handle, evt->role, bt_addr_le_str(&evt->peer_addr),
 	       bt_addr_str(&evt->peer_rpa));
-	BT_DBG("local RPA %s", bt_addr_str(&evt->local_rpa));
+	BT_WARN("local RPA %s", bt_addr_str(&evt->local_rpa));
 
 #if defined(CONFIG_BT_SMP)
 	pending_id_keys_update();

@@ -346,7 +346,7 @@ static void conn_update_timeout(struct k_work *work)
 	struct bt_conn *conn = CONTAINER_OF(work, struct bt_conn, update_work);
 	const struct bt_le_conn_param *param;
 
-	BT_DBG("conn %p", conn);
+	BT_WARN("conn %p", conn);
 
 	if (conn->state == BT_CONN_DISCONNECTED) {
 		bt_l2cap_disconnected(conn);
@@ -1500,7 +1500,7 @@ void bt_conn_set_state(struct bt_conn *conn, bt_conn_state_t state)
 {
 	bt_conn_state_t old_state;
 
-	BT_DBG("%s -> %s", state2str(conn->state), state2str(state));
+	BT_WARN("%s -> %s", state2str(conn->state), state2str(state));
 
 	if (conn->state == state) {
 		BT_WARN("no transition %s", state2str(state));
@@ -1911,6 +1911,8 @@ int bt_conn_get_remote_info(struct bt_conn *conn,
 static int conn_disconnect(struct bt_conn *conn, uint8_t reason)
 {
 	int err;
+
+	BT_WARN("Disconnect %p : %d", conn, reason);
 
 	err = bt_hci_disconnect(conn->handle, reason);
 	if (err) {
