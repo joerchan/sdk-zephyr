@@ -130,6 +130,14 @@ void main(void)
 	 * of starting delayed work so we do it here
 	 */
 	while (1) {
+		static int count;
+
+		if ( !((++count%10)) ) {
+			if (default_conn) {
+				int err = bt_conn_disconnect(default_conn, BT_HCI_ERR_LOCALHOST_TERM_CONN);
+				printk("Err RC = %d\n", err);
+			}
+		}
 		k_sleep(K_SECONDS(1));
 
 		/* Heartrate measurements simulation */
