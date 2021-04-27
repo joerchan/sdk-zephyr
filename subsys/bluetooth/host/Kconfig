@@ -13,39 +13,6 @@ config BT_HCI_HOST
 	depends on !BT_HCI_RAW
 	select POLL
 
-config BT_HCI_CMD_COUNT
-	int "Number of HCI command buffers"
-	default 2
-	range 2 64
-	help
-	  Number of buffers available for HCI commands.
-
-config BT_RX_BUF_COUNT
-	int "Number of HCI RX buffers"
-	default NET_BUF_RX_COUNT if NET_L2_BT
-	default 3 if BT_RECV_IS_RX_THREAD
-	default 20 if (BT_MESH && !(BT_DISCARDABLE_BUF_COUNT > 0))
-	default 10
-	range 2 255
-	help
-	  Number of buffers available for incoming ACL packets or HCI events
-	  from the controller.
-
-config BT_RX_BUF_LEN
-	int "Maximum supported HCI RX buffer length"
-	default 264 if BT_BREDR
-	default 258 if BT_EXT_ADV
-	default 77 if BT_MESH_PROXY
-	default 76
-	range 73 2000
-	help
-	  Maximum data size for each HCI RX buffer. This size includes
-	  everything starting with the ACL or HCI event headers. Note that
-	  buffer sizes are always rounded up to the nearest multiple of 4,
-	  so if this Kconfig value is something else then there will be some
-	  wasted space. The minimum of 73 has been taken for LE SC which has
-	  an L2CAP MTU of 65 bytes. On top of this there's the L2CAP header
-	  (4 bytes) and the ACL header (also 4 bytes) which yields 73 bytes.
 
 config BT_DISCARDABLE_BUF_COUNT
 	int "Number of discardable event buffers"
@@ -126,16 +93,6 @@ config BT_HCI_RESERVE
 	help
 	  Headroom that the driver needs for sending and receiving buffers. Add a
 	  new 'default' entry for each new driver.
-
-config BT_HCI_ACL_DATA_SIZE
-	int
-	prompt "ACL data buffer size" if !BT_CTLR
-	depends on BT_HCI_RAW
-	range 27 251
-	default BT_CTLR_DATA_LENGTH_MAX if BT_CTLR
-	default 27
-	help
-	  Maximum ACL data payload in HCI packets, excluding HCI header.
 
 config BT_RECV_IS_RX_THREAD
 	# Hidden option set by the HCI driver to indicate that there's
@@ -256,16 +213,6 @@ config BT_WHITELIST
 	  bt_conn_create_aute_le API.
 
 if BT_CONN
-
-config BT_ACL_RX_COUNT
-	int "Number of incoming ACL data buffers"
-	default BT_CTLR_RX_BUFFERS if BT_CTLR
-	default NET_BUF_RX_COUNT if NET_L2_BT
-	default 6
-	range 1 64
-	depends on BT_HCI_ACL_FLOW_CONTROL
-	help
-	  Number of buffers available for incoming ACL data.
 
 config BT_CONN_TX_MAX
 	int "Maximum number of pending TX buffers with a callback"

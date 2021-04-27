@@ -4,6 +4,112 @@
 # Copyright (c) 2016 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+config BT_BUF_ACL_TX_SIZE
+	int "Maximum support ACL size for outgoing data"
+	range 27 251
+	default 27
+	help
+	  Size of the Tx buffers and the value returned in HCI LE Read Buffer
+	  Size command response. If this size if greater than effective PDU size
+	  then controller will perform fragmentation before transmitting on the
+	  the packet on air.
+	  Maximum is set to 251 due to implementation limitations (use of
+	  uint8_t for length field in PDU buffer structure
+
+config BT_BUF_ACL_TX_COUNT
+	int "Number of outgoing ACL data buffers"
+	default 7 if BT_HCI_RAW
+	default 3
+	range 1 19
+	help
+	  Set the number of Tx PDUs to be queued for transmission in the
+	  controller. In a 7.5ms connection interval and 2M PHY, maximum 19
+	  packets can be enqueued, with 18 packets with L2CAP payload size of 1
+	  byte can be acknowledged.
+
+config BT_BUF_ACL_RX_SIZE
+	int "Maximum supported ACL size for incoming data"
+	default 200 if BT_BREDR # ???
+	# Mesh Proxy Recommended: 64 Pkey + 2 Bytes Mesh header.
+	# Overhead: Write command Header (3) in an L2CAP B-frame (4).
+	default 73 if BT_MESH_PROXY
+	default 70 if BT_EATT
+	default 69 if BT_SMP
+	default 27
+	range 70 1300 if BT_EATT
+	range 69 1300 if BT_SMP
+	range 27 1300
+	help
+	  Size of the Rx buffers and the value given in the HCI Host Buffer Size
+	  command when Controller to Host ACL flow control has been enabled.
+	  Note that buffer sizes are always rounded up to the nearest multiple
+	  of 4, so if this Kconfig value is something else then there will be
+	  some wasted space.
+
+	  With Enhaced ATT enabled the minimum of 70 is needed to support the
+	  minimum ATT_MTU of 64 octets in an L2CAP K-frame.
+	  With SMP LE Secure Connections enabled the minimum of 69 is needed to
+	  support the minimum SMP MTU of 65 octets (public key + opcode) in an
+	  L2CAP B-frame.
+
+	  Overhead of an L2CAP B-frame is a 4 bytes header.
+	  Overhead of an L2CAP K-frame is a 2 byte SDU length field plus the
+	  4 bytes header of an L2CAP B-frame.
+
+config BT_BUF_ACL_RX_COUNT
+	int "Number of incoming ACL data buffers"
+	default NET_BUF_RX_COUNT if NET_L2_BT
+	default 3 if BT_RECV_IS_RX_THREAD
+	default 6
+	range 1 64
+	help
+	  Number of buffers available for incoming ACL data.
+
+config BT_BUF_EVT_RX_SIZE
+	int "Maximum supported HCI Event buffer length"
+	default 262 if BT_BREDR # ???
+	default 255 if (BT_EXT_ADV && !(BT_DISCARDABLE_BUF_COUNT > 0))
+	# default 255 if BT_EXT_ADV
+	default 72
+	range 69 2000
+	help
+	  Maximum data size for each HCI RX buffer. This size includes
+	  everything starting with the ACL or HCI event headers. Note that
+	  buffer sizes are always rounded up to the nearest multiple of 4,
+	  so if this Kconfig value is something else then there will be some
+	  wasted space. The minimum of 73 has been taken for LE SC which has
+	  an L2CAP MTU of 65 bytes. On top of this there's the L2CAP header
+	  (4 bytes) and the ACL header (also 4 bytes) which yields 73 bytes.
+
+config BT_BUF_EVT_RX_COUNT
+	int "Number of HCI Event buffers"
+	default 3 if BT_RECV_IS_RX_THREAD
+	default 20 if (BT_MESH && !(BT_DISCARDABLE_BUF_COUNT > 0))
+	default 10
+	range 2 255
+	help
+	  Number of buffers available for incoming ACL packets or HCI events
+	  from the controller.
+
+	  When HCI ACL flow control is enabled this is only used for HCI events
+	  from the controller.
+
+config BT_BUF_CMD_TX_SIZE
+	int "Maximum support HCI Command buffer length"
+	default 262 if BT_BREDR # ???
+	default 255 if BT_EXT_ADV
+	range 64 255
+	help
+	  Maximum data size for each HCI Command buffer. This size excludes the
+	  HCI Command header.
+
+config BT_BUF_CMD_TX_COUNT
+	int "Number of HCI command buffers"
+	default 2
+	range 2 64
+	help
+	  Number of buffers available for HCI commands.
+
 config BT_HAS_HCI_VS
 	bool
 	help

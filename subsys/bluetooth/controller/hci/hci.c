@@ -1132,8 +1132,8 @@ static void le_read_buffer_size(struct net_buf *buf, struct net_buf **evt)
 
 	rp->status = 0x00;
 
-	rp->le_max_len = sys_cpu_to_le16(CONFIG_BT_CTLR_TX_BUFFER_SIZE);
-	rp->le_max_num = CONFIG_BT_CTLR_TX_BUFFERS;
+	rp->le_max_len = sys_cpu_to_le16(CONFIG_BT_BUF_ACL_TX_SIZE);
+	rp->le_max_num = CONFIG_BT_BUF_ACL_TX_COUNT;
 }
 
 static void le_read_local_features(struct net_buf *buf, struct net_buf **evt)
@@ -3745,7 +3745,7 @@ static void vs_read_build_info(struct net_buf *buf, struct net_buf **evt)
 			    sizeof(struct bt_hci_rp_vs_read_build_info) + \
 			    sizeof(build_info))
 
-	BUILD_ASSERT(CONFIG_BT_RX_BUF_LEN >= BUILD_INFO_EVT_LEN);
+	BUILD_ASSERT(CONFIG_BT_BUF_EVT_RX_SIZE >= BUILD_INFO_EVT_LEN);
 
 	rp = hci_cmd_complete(evt, sizeof(*rp) + sizeof(build_info));
 	rp->status = 0x00;
@@ -4140,7 +4140,7 @@ int hci_acl_handle(struct net_buf *buf, struct net_buf **evt)
 		return -EINVAL;
 	}
 
-	if (len > CONFIG_BT_CTLR_TX_BUFFER_SIZE) {
+	if (len > CONFIG_BT_BUF_ACL_RX_SIZE) {
 		BT_ERR("Invalid HCI ACL Data length");
 		return -EINVAL;
 	}

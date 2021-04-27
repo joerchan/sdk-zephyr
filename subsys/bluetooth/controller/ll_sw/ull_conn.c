@@ -138,7 +138,7 @@ static uint8_t force_md_cnt_calc(struct lll_conn *lll_conn, uint32_t tx_rate);
 
 #define CONN_TX_BUF_SIZE MROUND(offsetof(struct node_tx, pdu) + \
 				offsetof(struct pdu_data, lldata) + \
-				(CONFIG_BT_CTLR_TX_BUFFER_SIZE + \
+				(CONFIG_BT_BUF_ACL_TX_SIZE + \
 				BT_CTLR_USER_TX_BUFFER_OVERHEAD))
 
 /**
@@ -151,14 +151,14 @@ static uint8_t force_md_cnt_calc(struct lll_conn *lll_conn, uint32_t tx_rate);
 				     offsetof(struct pdu_data, llctrl) + \
 				     sizeof(struct pdu_data_llctrl))
 
-static MFIFO_DEFINE(conn_tx, sizeof(struct lll_tx), CONFIG_BT_CTLR_TX_BUFFERS);
+static MFIFO_DEFINE(conn_tx, sizeof(struct lll_tx), CONFIG_BT_BUF_ACL_TX_COUNT);
 static MFIFO_DEFINE(conn_ack, sizeof(struct lll_tx),
-		    (CONFIG_BT_CTLR_TX_BUFFERS + CONN_TX_CTRL_BUFFERS));
+		    (CONFIG_BT_BUF_ACL_TX_COUNT + CONN_TX_CTRL_BUFFERS));
 
 
 static struct {
 	void *free;
-	uint8_t pool[CONN_TX_BUF_SIZE * CONFIG_BT_CTLR_TX_BUFFERS];
+	uint8_t pool[CONN_TX_BUF_SIZE * CONFIG_BT_BUF_ACL_TX_COUNT];
 } mem_conn_tx;
 
 static struct {
@@ -169,7 +169,7 @@ static struct {
 static struct {
 	void *free;
 	uint8_t pool[sizeof(memq_link_t) *
-		  (CONFIG_BT_CTLR_TX_BUFFERS + CONN_TX_CTRL_BUFFERS)];
+		  (CONFIG_BT_BUF_ACL_TX_COUNT + CONN_TX_CTRL_BUFFERS)];
 } mem_link_tx;
 
 #if defined(CONFIG_BT_CTLR_DATA_LENGTH)
@@ -263,7 +263,7 @@ int ll_tx_mem_enqueue(uint16_t handle, void *tx)
 		static struct mayfly mfy = {0, 0, &link, NULL, tx_demux};
 
 #if defined(CONFIG_BT_CTLR_FORCE_MD_AUTO)
-		if (tx_cnt >= CONFIG_BT_CTLR_TX_BUFFERS) {
+		if (tx_cnt >= CONFIG_BT_BUF_ACL_TX_COUNT) {
 			uint8_t previous, force_md_cnt;
 
 			force_md_cnt = force_md_cnt_calc(&conn->lll, tx_rate);
@@ -1683,7 +1683,7 @@ static int init_reset(void)
 		 sizeof(conn_pool) / sizeof(struct ll_conn), &conn_free);
 
 	/* Initialize tx pool. */
-	mem_init(mem_conn_tx.pool, CONN_TX_BUF_SIZE, CONFIG_BT_CTLR_TX_BUFFERS,
+	mem_init(mem_conn_tx.pool, CONN_TX_BUF_SIZE, CONFIG_BT_BUF_ACL_TX_COUNT,
 		 &mem_conn_tx.free);
 
 	/* Initialize tx ctrl pool. */
@@ -1692,7 +1692,7 @@ static int init_reset(void)
 
 	/* Initialize tx link pool. */
 	mem_init(mem_link_tx.pool, sizeof(memq_link_t),
-		 CONFIG_BT_CTLR_TX_BUFFERS + CONN_TX_CTRL_BUFFERS,
+		 CONFIG_BT_BUF_ACL_TX_COUNT + CONN_TX_CTRL_BUFFERS,
 		 &mem_link_tx.free);
 
 #if defined(CONFIG_BT_CTLR_DATA_LENGTH)

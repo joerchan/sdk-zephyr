@@ -29,6 +29,12 @@ extern "C" {
 /** L2CAP header size, used for buffer size calculations */
 #define BT_L2CAP_HDR_SIZE               4
 
+/** L2CAP Basic frame (B-frame) TX MTU. */
+#define BT_L2CAP_TX_MTU (CONFIG_BT_L2CAP_TX_MTU)
+
+/** L2CAP Basic frame (B-frame) RX MTU. */
+#define BT_L2CAP_RX_MTU (CONFIG_BT_BUF_ACL_RX_SIZE - BT_L2CAP_HDR_SIZE)
+
 /** @def BT_L2CAP_BUF_SIZE
  *
  *  @brief Helper to calculate needed buffer size for L2CAP Basic frames,
