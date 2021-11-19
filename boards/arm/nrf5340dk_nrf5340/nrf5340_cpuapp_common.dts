@@ -139,16 +139,8 @@
 	scl-pin = <35>;
 };
 
-&uart0 {
-	status = "okay";
-	current-speed = <115200>;
-	tx-pin = <20>;
-	rx-pin = <22>;
-	rx-pull-up;
-	rts-pin = <19>;
-	cts-pin = <21>;
-	cts-pull-up;
-};
+#include "nrf5340dk_common_pins.dtsi"
+uart0: &app_uart0{};
 
 &pwm0 {
 	status = "okay";

@@ -1,0 +1,33 @@
+/ {
+	net_soc {
+		net_uart0: uart@41013000 {
+			compatible = "nordic,nrf-uarte";
+			reg = <0x41013000 0x1000>;
+			interrupts = <19 NRF_DEFAULT_IRQ_PRIORITY>;
+			status = "disabled";
+			label = "UART_0";
+		};
+	};
+};
+
+&net_uart0 {
+	status = "okay";
+	current-speed = <115200>;
+	tx-pin = <33>;
+	rx-pin = <32>;
+	rx-pull-up;
+	rts-pin = <11>;
+	cts-pin = <10>;
+	cts-pull-up;
+};
+
+&app_uart0 {
+	status = "okay";
+	current-speed = <115200>;
+	tx-pin = <20>;
+	rx-pin = <22>;
+	rx-pull-up;
+	rts-pin = <19>;
+	cts-pin = <21>;
+	cts-pull-up;
+};

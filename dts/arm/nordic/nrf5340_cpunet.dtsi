@@ -180,7 +180,7 @@
 			label = "SPI_0";
 		};
 
-		uart0: uart@41013000 {
+		net_uart0: uart@41013000 {
 			compatible = "nordic,nrf-uarte";
 			reg = <0x41013000 0x1000>;
 			interrupts = <19 NRF_DEFAULT_IRQ_PRIORITY>;

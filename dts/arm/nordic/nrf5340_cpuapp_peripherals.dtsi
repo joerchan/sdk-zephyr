@@ -55,7 +55,7 @@ spi0: spi@8000 {
 	label = "SPI_0";
 };
 
-uart0: uart@8000 {
+app_uart0: uart@8000 {
 	compatible = "nordic,nrf-uarte";
 	reg = <0x8000 0x1000>;
 	interrupts = <8 NRF_DEFAULT_IRQ_PRIORITY>;

@@ -117,16 +117,8 @@
 	status = "okay";
 };
 
-&uart0 {
-	status = "okay";
-	current-speed = <115200>;
-	tx-pin = <33>;
-	rx-pin = <32>;
-	rx-pull-up;
-	rts-pin = <11>;
-	cts-pin = <10>;
-	cts-pull-up;
-};
+#include "nrf5340dk_common_pins.dtsi"
+uart0: &net_uart0{};
 
 arduino_serial: &uart0{};
 
