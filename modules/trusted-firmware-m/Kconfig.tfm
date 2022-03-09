@@ -177,6 +177,12 @@ config TFM_BL2
 	  We currently do not support builds with MCUboot and TF-M if the
 	  Nordic Security backend is used.
 
+config TFM_NS
+	bool "Use the TF-M Non-Secure application"
+	help
+	  When this is enabled, the Zephyr application as a whole will be
+	  replaced with the TF-M Non-Secure application.
+
 if TFM_BL2
 
 config TFM_MCUBOOT_IMAGE_NUMBER
@@ -233,9 +239,10 @@ config TFM_REGRESSION_S
 
 config TFM_REGRESSION_NS
 	bool "Use the TF-M Non-Secure Regression test application"
+	depends on TFM_NS
 	help
-	  When this is enabled, the Zephyr application as a whole will be
-	  replaced with the TF-M Non-Secure Regression test application.
+	  When enabled, this option signifies that the TF-M build includes
+	  the Non-Secure domain regression tests.
 
 choice TFM_PSA_TEST
 	prompt "Enable a PSA test suite"

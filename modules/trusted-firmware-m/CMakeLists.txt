@@ -48,6 +48,11 @@ if (CONFIG_BUILD_WITH_TFM)
   else()
     list(APPEND TFM_CMAKE_ARGS -DBL2=FALSE)
   endif()
+  if (CONFIG_TFM_NS)
+    list(APPEND TFM_CMAKE_ARGS -DNS=TRUE)
+  else()
+    list(APPEND TFM_CMAKE_ARGS -DNS=FALSE)
+  endif()
   if (CONFIG_TFM_ISOLATION_LEVEL)
     list(APPEND TFM_CMAKE_ARGS -DTFM_ISOLATION_LEVEL=${CONFIG_TFM_ISOLATION_LEVEL})
   endif()
@@ -148,6 +153,7 @@ if (CONFIG_BUILD_WITH_TFM)
   set(VENEERS_FILE ${TFM_BINARY_DIR}/secure_fw/s_veneers.o)
   set(TFM_API_NS_PATH ${TFM_BINARY_DIR}/app/libtfm_api_ns.a)
   set(TFM_GENERATED_INCLUDES ${TFM_BINARY_DIR}/generated/interface/include)
+  set(TFM_INSTALL_SOURCES ${TFM_BINARY_DIR}/install/interface/src)
   set(PLATFORM_NS_FILE ${TFM_BINARY_DIR}/platform/libplatform_ns.a)
 
   if (TFM_PSA_TEST_SUITE)
@@ -190,6 +196,23 @@ if (CONFIG_BUILD_WITH_TFM)
     ${TFM_S_SIGNED_BIN_FILE}
     ${TFM_NS_SIGNED_BIN_FILE}
     ${TFM_S_NS_SIGNED_BIN_FILE}
+
+    ${TFM_INSTALL_SOURCES}/tfm_platform_ipc_api.c
+    ${TFM_INSTALL_SOURCES}/tfm_ps_ipc_api.c
+    ${TFM_INSTALL_SOURCES}/tfm_its_ipc_api.c
+    ${TFM_INSTALL_SOURCES}/tfm_crypto_ipc_api.c
+    ${TFM_INSTALL_SOURCES}/tfm_initial_attestation_ipc_api.c
+    ${TFM_INSTALL_SOURCES}/tfm_firmware_update_ipc_api.c
+
+    ${TFM_INSTALL_SOURCES}/tfm_psa_ns_api.c
+
+    ${TFM_INSTALL_SOURCES}/tfm_platform_func_api.c
+    ${TFM_INSTALL_SOURCES}/tfm_ps_func_api.c
+    ${TFM_INSTALL_SOURCES}/tfm_its_func_api.c
+    ${TFM_INSTALL_SOURCES}/tfm_crypto_func_api.c
+    ${TFM_INSTALL_SOURCES}/tfm_initial_attestation_func_api.c
+    ${TFM_INSTALL_SOURCES}/tfm_firmware_update_func_api.c
+
     )
 
   # Get the toolchain variant
@@ -272,7 +295,7 @@ if (CONFIG_BUILD_WITH_TFM)
     SOURCE_DIR ${ZEPHYR_TRUSTED_FIRMWARE_M_MODULE_DIR}
     BINARY_DIR ${TFM_BINARY_DIR}
     CONFIGURE_COMMAND ""
-    BUILD_COMMAND ${CMAKE_COMMAND} --build . ${PARALLEL_JOBS}
+    BUILD_COMMAND ${CMAKE_COMMAND} --build . --target all platform_ns ${PARALLEL_JOBS}
     INSTALL_COMMAND ${CMAKE_COMMAND} --install .
     BUILD_ALWAYS True
     USES_TERMINAL_BUILD True
@@ -313,9 +336,35 @@ if (CONFIG_BUILD_WITH_TFM)
     src/zephyr_tfm_log.c
     interface/interface.c
     )
+
   # Non-Secure interface to request system reboot
   zephyr_library_sources_ifdef(CONFIG_TFM_PARTITION_PLATFORM src/reboot.c)
   zephyr_library_sources_ifndef(CONFIG_TFM_PSA_TEST_NONE src/zephyr_tfm_psa_test.c)
+
+  if (NOT CONFIG_TFM_NS)
+    if (CONFIG_TFM_IPC)
+      # TODO: Add ${TFM_INSTALL_SOURCES}/multi_core source files when this is enabled.
+      #       Configuration is set internally in TF-M based on board support.
+      #       No boards supported by zephyr enables the configuration.
+      zephyr_library_sources_ifdef(CONFIG_TFM_PARTITION_PLATFORM                 ${TFM_INSTALL_SOURCES}/tfm_platform_ipc_api.c)
+      zephyr_library_sources_ifdef(CONFIG_TFM_PARTITION_PROTECTED_STORAGE        ${TFM_INSTALL_SOURCES}/tfm_ps_ipc_api.c)
+      zephyr_library_sources_ifdef(CONFIG_TFM_PARTITION_INTERNAL_TRUSTED_STORAGE ${TFM_INSTALL_SOURCES}/tfm_its_ipc_api.c)
+      zephyr_library_sources_ifdef(CONFIG_TFM_PARTITION_CRYPTO                   ${TFM_INSTALL_SOURCES}/tfm_crypto_ipc_api.c)
+      zephyr_library_sources_ifdef(CONFIG_TFM_PARTITION_INITIAL_ATTESTATION      ${TFM_INSTALL_SOURCES}/tfm_initial_attestation_ipc_api.c)
+      zephyr_library_sources_ifdef(CONFIG_TFM_PARTITION_FIRMWARE_UPDATE          ${TFM_INSTALL_SOURCES}/tfm_firmware_update_ipc_api.c)
+
+      zephyr_library_sources(${TFM_INSTALL_SOURCES}/tfm_psa_ns_api.c)
+    else()
+      zephyr_library_sources_ifdef(CONFIG_TFM_PARTITION_PLATFORM                 ${TFM_INSTALL_SOURCES}/tfm_platform_func_api.c)
+      zephyr_library_sources_ifdef(CONFIG_TFM_PARTITION_PROTECTED_STORAGE        ${TFM_INSTALL_SOURCES}/tfm_ps_func_api.c)
+      zephyr_library_sources_ifdef(CONFIG_TFM_PARTITION_INTERNAL_TRUSTED_STORAGE ${TFM_INSTALL_SOURCES}/tfm_its_func_api.c)
+      zephyr_library_sources_ifdef(CONFIG_TFM_PARTITION_CRYPTO                   ${TFM_INSTALL_SOURCES}/tfm_crypto_func_api.c)
+      zephyr_library_sources_ifdef(CONFIG_TFM_PARTITION_INITIAL_ATTESTATION      ${TFM_INSTALL_SOURCES}/tfm_initial_attestation_func_api.c)
+      zephyr_library_sources_ifdef(CONFIG_TFM_PARTITION_FIRMWARE_UPDATE          ${TFM_INSTALL_SOURCES}/tfm_firmware_update_func_api.c)
+    endif()
+  else()
+    zephyr_library_link_libraries(${TFM_API_NS_PATH})
+  endif()
 
   zephyr_include_directories(
     ${TFM_GENERATED_INCLUDES}
@@ -329,8 +378,10 @@ if (CONFIG_BUILD_WITH_TFM)
     ${PSA_TEST_VAL_FILE}
     ${PSA_TEST_PAL_FILE}
     ${PSA_TEST_COMBINE_FILE}
+    # TODO: The platform_ns library is needed for some NS API definition e.g. IOCTL functions
+    #       The rest of the library shouldn't be linked into the non-secure application
+    #       e.g. platform timer test driver, platform UART driver.
     ${PLATFORM_NS_FILE}
-    ${TFM_API_NS_PATH}
     ${VENEERS_FILE}
     )
 
@@ -397,7 +448,7 @@ if (CONFIG_BUILD_WITH_TFM)
   set(NS_SIGNED_FILE ${CMAKE_BINARY_DIR}/zephyr_ns_signed.hex)
   set(S_SIGNED_FILE ${CMAKE_BINARY_DIR}/tfm_s_signed.hex)
 
-  if (CONFIG_TFM_REGRESSION_NS)
+  if (CONFIG_TFM_NS)
     # Use the TF-M NS binary as the Non-Secure application firmware image
     set(NS_APP_FILE $<TARGET_PROPERTY:tfm,TFM_NS_HEX_FILE>)
   else()
@@ -442,7 +493,7 @@ if (CONFIG_BUILD_WITH_TFM)
     )
 
   else()
-    if (CONFIG_TFM_REGRESSION_NS)
+    if (CONFIG_TFM_NS)
       tfm_sign(sign_cmd_ns NS TRUE ${NS_APP_FILE} ${NS_SIGNED_FILE})
     else()
       tfm_sign(sign_cmd_ns NS FALSE ${NS_APP_FILE} ${NS_SIGNED_FILE})
