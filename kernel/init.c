@@ -35,6 +35,8 @@
 #include <kswap.h>
 #include <timing/timing.h>
 #include <logging/log.h>
+
+#include "debug.h"
 LOG_MODULE_REGISTER(os, CONFIG_KERNEL_LOG_LEVEL);
 
 /* the only struct z_kernel instance */
@@ -209,8 +211,9 @@ static void bg_thread_main(void *unused1, void *unused2, void *unused3)
 	z_mem_manage_init();
 #endif /* CONFIG_MMU */
 	z_sys_post_kernel = true;
-
+debug_pin_cpuapp_set(6);
 	z_sys_init_run_level(_SYS_INIT_LEVEL_POST_KERNEL);
+debug_pin_cpuapp_clear(6);
 #if CONFIG_STACK_POINTER_RANDOM
 	z_stack_adjust_initialized = 1;
 #endif
@@ -222,8 +225,9 @@ static void bg_thread_main(void *unused1, void *unused2, void *unused3)
 #endif
 
 	/* Final init level before app starts */
+debug_pin_cpuapp_set(6);
 	z_sys_init_run_level(_SYS_INIT_LEVEL_APPLICATION);
-
+debug_pin_cpuapp_clear(6);
 	z_init_static_threads();
 
 #ifdef CONFIG_KERNEL_COHERENCE
@@ -450,8 +454,10 @@ FUNC_NORETURN void z_cstart(void)
 	z_device_state_init();
 
 	/* perform basic hardware initialization */
+debug_pin_cpuapp_set(6);
 	z_sys_init_run_level(_SYS_INIT_LEVEL_PRE_KERNEL_1);
 	z_sys_init_run_level(_SYS_INIT_LEVEL_PRE_KERNEL_2);
+debug_pin_cpuapp_clear(6);
 
 #ifdef CONFIG_STACK_CANARIES
 	uintptr_t stack_guard;

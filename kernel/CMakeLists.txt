@@ -108,6 +108,8 @@ endif()
 target_include_directories(kernel PRIVATE
   ${ZEPHYR_BASE}/kernel/include
   ${ARCH_DIR}/${ARCH}/include
+  # ../nrf/include/tfm
+  ${NRF_DIR}/include/tfm
   )
 
 target_link_libraries(kernel zephyr_interface)

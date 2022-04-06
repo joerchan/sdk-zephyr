@@ -11,6 +11,8 @@
 #include <soc.h>
 #include <soc_secure.h>
 
+#include "debug.h"
+
 LOG_MODULE_REGISTER(nrf5340dk_nrf5340_cpuapp, CONFIG_LOG_DEFAULT_LEVEL);
 
 #if defined(CONFIG_BT_CTLR_DEBUG_PINS_CPUAPP)
@@ -37,7 +39,7 @@ static void remoteproc_mgr_config(void)
 static int remoteproc_mgr_boot(const struct device *dev)
 {
 	ARG_UNUSED(dev);
-
+debug_pin_cpuapp_set(5);
 	/* Secure domain may configure permissions for the Network MCU. */
 	remoteproc_mgr_config();
 
@@ -54,7 +56,7 @@ static int remoteproc_mgr_boot(const struct device *dev)
 
 	LOG_DBG("Network MCU released.");
 #endif /* !CONFIG_TRUSTED_EXECUTION_SECURE */
-
+debug_pin_cpuapp_clear(5);
 	return 0;
 }
 

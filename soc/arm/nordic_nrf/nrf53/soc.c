@@ -47,7 +47,7 @@ extern void z_arm_nmi_init(void);
 #else
 #error "Unknown nRF53 SoC."
 #endif
-
+#include <debug.h>
 #if DT_HAS_COMPAT_STATUS_OKAY(nordic_nrf_gpio_forwarder) && \
 	defined(CONFIG_BOARD_ENABLE_CPUNET) && \
 	(!defined(CONFIG_TRUSTED_EXECUTION_NONSECURE) || defined(CONFIG_BUILD_WITH_TFM))
@@ -69,7 +69,7 @@ LOG_MODULE_REGISTER(soc);
 static int nordicsemi_nrf53_init(const struct device *arg)
 {
 	uint32_t key;
-
+debug_pin_cpuapp_range_test(6, 7);
 	ARG_UNUSED(arg);
 
 	key = irq_lock();
