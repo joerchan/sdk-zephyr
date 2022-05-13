@@ -16,17 +16,8 @@ sample:
 
 tests:
   sample.tfm.regression:
-    extra_args: ""
     timeout: 200
 
   sample.tfm.regression_ipc:
     extra_args: CONFIG_TFM_IPC=y
-    timeout: 200
-
-  sample.tfm.initial_attestation_debug:
-    extra_args: OVERLAY_CONFIG=overlay-initial-attestation-debug.conf
-    timeout: 200
-
-  sample.tfm.initial_attestation_debug_ipc:
-    extra_args: CONFIG_TFM_IPC=y OVERLAY_CONFIG=overlay-initial-attestation-debug.conf
     timeout: 200
