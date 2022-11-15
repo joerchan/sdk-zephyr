@@ -55,10 +55,14 @@
 		#include "nrf5340_cpuapp_ipc.dtsi"
 	};
 
-	/* For cryptocell access via platform library; see above */
+	/* When TF-M is enabled the entropy driver is using PSA
+	 * APIs to generate random numbers. We need a peripheral
+	 * entry for Zephyr to match with the PSA driver.
+	 * We name it cryptocell_sw since the entropy from the
+	 * PSA crypto APIs come fro CryptoCell.
+	 */
 	cryptocell_sw: cryptocell-sw {
-		compatible = "nordic,nrf-cc312-sw";
-		#address-cells = <0>;
+		compatible = "zephyr,psa-crypto-rng";
 		status = "okay";
 	};
 };
